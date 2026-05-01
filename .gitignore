@@ -1,0 +1,7 @@
+/target
+.venv
+__pycache__
+mvp-plan.md
+.DS_Store
+
+test/bye.py

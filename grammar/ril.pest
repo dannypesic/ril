@@ -1,0 +1,29 @@
+// ril.pest
+
+WHITESPACE = _{ " " | "\t" }
+
+// A full pipeline: stage | stage | stage
+pipeline = { stage ~ ("|" ~ stage)* }
+
+// A stage is either a builtin command or a script path
+stage = _{ builtin | script }
+
+// Known builtin names
+builtin = _{ load | save | filter | select | each }
+load    = { "load" ~ path }
+save    = { "save" ~ path }
+filter  = { "filter" ~ expr }
+select  = { "select" ~ ident+ }
+each    = { "each" ~ "{" ~ stage ~ "}" }
+
+// A script: path to a .py file or binary, plus optional flags
+script  = { path ~ flag* }
+path    = { (ASCII_ALPHANUMERIC | "." | "/" | "_" | "-")+ }
+flag    = { "--" ~ ident ~ "=" ~ value }
+
+// Primitives
+string  = { "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+expr    = { "'" ~ (!"'" ~ ANY)* ~ "'" }
+ident   = { ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
+value   = { string | number | ident }
+number  = { ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? }
