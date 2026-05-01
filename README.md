@@ -22,6 +22,8 @@ ril doesn't load your data all at once, rather, it streams it through the pipeli
 You can work directly with the PyArrow API, or convert to Python dicts for row-level logic:
 
 ```python
+from ril import rilfn
+
 @rilfn
 def process(batch):
     batch = pa.record_batch(batch)
@@ -37,6 +39,7 @@ You can also work through pandas or numpy for your data pipelines:
 
 ```python
 import pandas as pd
+from ril import rilfn
 
 @rilfn
 def process(batch):
@@ -86,4 +89,4 @@ The executor is **thread-based**, which means all `@rilfn` stages share a single
 cargo build --release
 ```
 
-Requires Rust and a Python installation with `pyarrow` and `arro3` available.
+Requires Rust and a Python installation with `pyarrow` and `arro3` in venv.
