@@ -5,16 +5,6 @@ use crate::stages::{Stage, BuiltinStage, ScriptStage};
 #[derive(Parser)] //ignore
 #[grammar = "grammar/ril.pest"]
 struct RilParser;
-
-
-fn extract_string(pair: pest::iterators::Pair<Rule>) -> String {
-    pair.into_inner()
-        .find(|p| p.as_rule() == Rule::string)                                                                                                                                                            
-        .unwrap()
-        .into_inner()       // goes inside the string rule, past the quotes                                                                                                                               
-        .as_str()                                                                                                                                                                                         
-        .to_string()
-}
 fn extract_path(pair: pest::iterators::Pair<Rule>) ->  String {
     pair.into_inner()
         .find(|p| p.as_rule() == Rule::path)

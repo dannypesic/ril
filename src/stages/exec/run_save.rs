@@ -9,9 +9,9 @@ pub fn run_save(path: &str) -> anyhow::Result<()> {
 
     let mut reader = StreamReader::try_new(stdin(), None)?;
     loop {
-        for batch in reader.next() { // do what this says
+        if let Some(batch) = reader.next() {
             let batch = batch?;
-            writer.write(&batch)?
+            writer.write(&batch)?;
         }
         if reader.is_finished() { break }
     }

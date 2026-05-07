@@ -1,5 +1,5 @@
 use std::process::{Command, Stdio, Child, ChildStdout};
-use crate::stages::{BuiltinStage, ScriptStage, Stage};
+use crate::stages::Stage;
 
 fn stage_to_args(index: &usize) -> Vec<String> {
     vec!["--stage-index".to_string(), index.to_string()]
