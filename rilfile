@@ -1,1 +1,1 @@
-load test/data.csv | test/add.py | test/bye.py | save test/results.csv
+load test/data.csv | test/add.py | test/diff.py | save test/results.csv
