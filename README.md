@@ -29,7 +29,7 @@ from ril import rilfn
 def process(batch):
     batch = pa.record_batch(batch)
 
-    # convert to dict of lists — easy for row-level operations
+    # convert to dict of lists for easy row-level operations
     data = batch.to_pydict()
     data["sum"] = [a + b for a, b in zip(data["value1"], data["value2"])]
 
