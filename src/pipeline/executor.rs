@@ -1,38 +1,37 @@
-use crate::stages::{Stage, builtins::run_stage};
-use crate::buffer::{Sender, Receiver, channel};
+use std::process::{Command, Stdio, Child, ChildStdout};
+use crate::stages::{BuiltinStage, ScriptStage, Stage};
+
+fn stage_to_args(index: &usize) -> Vec<String> {
+    vec!["--stage-index".to_string(), index.to_string()]
+}
 
 pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
     if stages.is_empty() {
         anyhow::bail!("empty pipeline");
     }
 
-    let mut channels: Vec<(Sender, Receiver)> =
-        (0..(stages.len() - 1)).map(|_| channel()).collect();
 
-    let mut handles = Vec::new();
+    let exe = std::env::current_exe()?;
+    let mut children: Vec<Child> = Vec::new();
 
-    for (i, stage) in stages.into_iter().enumerate() {
-        let rx = 
-            if i == 0 { 
-                None 
-            } else {
-                Some(channels[i - 1].1.clone())
-            };
-        let tx = 
-            if i == channels.len() {
-                None
-            } else {
-                Some(channels[i].0.clone())
-            };
+    let mut prev_stdout: Option<ChildStdout> = None;
 
-        let handle = std::thread::spawn(move || {
-            run_stage(stage, rx, tx) // this should be a process, not a thread (when flagged) for proper parallel computed and no GIL
-        });
-        handles.push(handle);
+    for index in 0..stages.len() {
+        let stdin = match prev_stdout.take() {
+            Some(out) => Stdio::from(out),
+            None => Stdio::null(),
+        };
+        let mut child = Command::new(&exe)
+            .args(stage_to_args(&index))
+            .stdin(stdin)
+            .stdout(Stdio::piped())
+            .spawn()?;
+        prev_stdout = child.stdout.take();
+        children.push(child);
     }
 
-    for handle in handles { //again, migrate to process in future.
-        handle.join().unwrap()?;
+    for child in &mut children {
+        child.wait()?;
     }
 
     Ok(())

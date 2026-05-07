@@ -4,4 +4,5 @@ __pycache__
 mvp-plan.md
 .DS_Store
 
-test/bye.py
+test/results.csv
+.idea

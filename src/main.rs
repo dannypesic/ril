@@ -1,38 +1,27 @@
 mod stages;
 mod pipeline;
-mod buffer;
 
 use clap::Parser;
 use crate::pipeline::parser;
 use crate::pipeline::executor;
+use crate::stages::script_manager;
 
-#[derive(Parser)] // ignore
-
+#[derive(Parser)]
 struct Args {
-    /// Pipeline string, e.g. "load data.csv | clean.py | save out.csv"
-    /// Or a path to a .ril file
-    pipeline: String,
+    #[arg(long)]
+    stage_index: Option<usize>,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-
-    let pipeline_src = if args.pipeline.ends_with(".ril") {
-        std::fs::read_to_string(&args.pipeline)?
-    } else {
-        args.pipeline
-    };
-
+    let pipeline_src = std::fs::read_to_string(&"rilfile")?;
     let stages = parser::parse(&pipeline_src)?;
-    println!("{:?}", &pipeline_src);
-    println!("Cardinality {:?}", &stages.len());
-    for s in &stages {                                                                                                                                                                                        
-        match s {                                                                                                                                                                                             
-            crate::stages::Stage::Builtin(_) => eprintln!("Builtin"),                                                                                                                                     
-            crate::stages::Stage::Script(sc) => eprintln!("Script: {}", sc.path),                                                                                                                         
-        }
+
+    if let Some(index) = args.stage_index {
+        script_manager::run_stage_process(stages[index].clone()).expect("Stage failed to run");
+    } else {
+        executor::run(stages)?;
     }
-    executor::run(stages)?;
 
     Ok(())
 }
