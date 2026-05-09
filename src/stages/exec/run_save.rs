@@ -15,6 +15,6 @@ pub fn run_save(path: &str) -> anyhow::Result<()> {
         }
         if reader.is_finished() { break }
     }
-
+    eprintln!("Data saved: pipeline finished.");
     Ok(())
 }

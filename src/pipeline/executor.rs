@@ -21,8 +21,10 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
             Some(out) => Stdio::from(out),
             None => Stdio::null(),
         };
+        let venv = std::env::current_dir()?.join(".venv");
         let mut child = Command::new(&exe)
             .args(stage_to_args(&index))
+            .env("VIRTUAL_ENV", venv)
             .stdin(stdin)
             .stdout(Stdio::piped())
             .spawn()?;

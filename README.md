@@ -24,6 +24,7 @@ You can work directly with the PyArrow API, or convert to Python dicts for row-l
 
 ```python
 from ril import rilfn
+import pyarrow as pa
 
 @rilfn
 def process(batch):
@@ -40,6 +41,7 @@ You can also work through pandas or numpy for your data pipelines:
 
 ```python
 import pandas as pd
+import pyarrow as pa
 from ril import rilfn
 
 @rilfn
@@ -104,5 +106,5 @@ Currently, ril lacks significant error handling along with parallel compute with
 cargo build --release
 ```
 
-Requires Rust and a Python installation with `pyarrow` and `arro3` in venv. Ensure that your project has a copy of `ril.py` so the annotation works properly.
+Requires Rust and Python 3. On first run, ril will automatically create a `.venv` in your project directory and install `pyarrow` and `arro3-core`, so no manual environment setup is needed.
 
