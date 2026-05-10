@@ -53,15 +53,15 @@ def process(batch):
 
 ## Built-in stages
 
-| Stage | Example |
-|---|---|
-| `load` | `load data.csv` |
-| `save` | `save output.csv` |
-| `filter` | `filter 'value > 0'` |
-| `select` | `select name age value` |
-| `each` | `each { clean.py }` |
+| Stage  | Example              |
+|--------|----------------------|
+| `load` | `load data.csv`      |
+| `save` | `save output.csv`    |
+| `tee`  | `tee checkpoint.csv` |
+| `xN`   | `model.py x4`        |
+| `xD`   | `model.py xD`        |
 
-`filter`, `select`, and `each` are currently WIP.
+`tee`, `xN`, and `xD` currently WIP.
 
 ## Multiprocessing
 
@@ -92,13 +92,11 @@ Currently, ril lacks significant error handling along with parallel compute with
 
 - More advanced error handling systems
 - Subprocesses manage workers for easy and intuitive parallel compute (`test.py x3`)
-- Disk checkpointing/tee for reliability
-- Additional builtins (`filter`, `select`, and `each`)
-- Enforce data schema across pipeline option
-- Dynamic worker process allocation
+- Disk checkpointing/`tee`
+- Dynamic worker process allocation with `xD`
 - Live progress display
-- "Dry run" to ensure pipeline functionality
 - Chunk size customizability
+- UV compatibility
 
 ## Building
 
@@ -106,5 +104,5 @@ Currently, ril lacks significant error handling along with parallel compute with
 cargo build --release
 ```
 
-Requires Rust and Python 3. On first run, ril will automatically create a `.venv` in your project directory and install `pyarrow` and `arro3-core`, so no manual environment setup is needed.
+Requires Rust and Python 3. On first run, ril will automatically create a `.venv` and `ril.py` in your project directory and install `pyarrow` and `arro3-core`, so no manual environment setup is needed.
 
