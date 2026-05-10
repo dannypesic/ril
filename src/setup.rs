@@ -11,17 +11,17 @@ pub fn setup_env() -> anyhow::Result<()> {
         {
             Command::new("python3")
                 .args(vec![
-                    "-m".to_string(),
-                    "venv".to_string(),
-                    ".venv".to_string()
+                    "-m",
+                    "venv",
+                    ".venv"
                 ])
                 .output().expect("couldn't create venv :(");
         } else {
             Command::new("python")
                 .args(vec![
-                    "-m".to_string(),
-                    "venv".to_string(),
-                    ".venv".to_string()
+                    "-m",
+                    "venv",
+                    ".venv"
                 ])
                 .output().expect("couldn't create venv :(");
         }
@@ -29,20 +29,15 @@ pub fn setup_env() -> anyhow::Result<()> {
 
     Command::new(".venv/bin/pip3")
         .args(vec![
-            "install".to_string(),
-            "pyarrow".to_string(),
-            "arro3-core".to_string()
+            "install",
+            "pyarrow",
+            "arro3-core"
         ])
         .output().expect("couldn't install dependencies :(");
 
-    if ! Path::new("ril.py").is_file() {
-        Command::new("echo")
-            .args(vec![
-                "-m".to_string(),
-                ">".to_string(),
-                "ril.py".to_string()
-            ])
-            .output().expect("couldn't create ril.py :(");
+    if !Path::new("ril.py").is_file() {
+        std::fs::write("ril.py", "def rilfn(fn):\n    import sys\n    frame = sys._getframe(1)\n    frame.f_globals['__ril_main__'] = fn\n    return fn\n")
+            .expect("couldn't create ril.py :(");
     }
 
     Ok(())
