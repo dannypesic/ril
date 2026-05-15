@@ -8,6 +8,14 @@ load data.csv | clean.py | save output.csv
 ```
 Then simply run `ril`.
 
+### Compatability
+
+ril connects directly with `pip` or `uv` in your project to ensure clean integration:
+- `pip`: default
+- `uv`: if `uv.lock` detected
+
+ril is currently locked to Python 3.14
+
 ## How it works
 
 Each stage in the pipeline receives Arrow RecordBatches from the previous stage and sends batches to the next. Stages run concurrently with bounded channels between them so backpressure is automatic.
