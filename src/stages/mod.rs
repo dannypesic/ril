@@ -12,9 +12,7 @@ pub enum Stage {
 pub enum BuiltinStage {
     Load { path: String },
     Save { path: String },
-    Filter { expr: String },                // For later
-    Select { fields: Vec<String> },         // For later
-    Each { inner: Box<Stage> },             // For later
+    Tee { path: String },
 }
 
 #[derive(Clone)]
