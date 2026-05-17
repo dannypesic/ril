@@ -11,7 +11,7 @@ pub fn run_load(path: &str) -> anyhow::Result<()> {
     let (schema, _) = format.infer_schema(&mut file, Some(100))?;
 
     let file = std::fs::File::open(path)?;
-    let mut reader = ReaderBuilder::new(Arc::new(schema.clone()))
+    let mut file_reader = ReaderBuilder::new(Arc::new(schema.clone()))
         .with_header(true)
         .with_batch_size(1000)// Add custom sizing later.
         .build(file)?;
@@ -19,7 +19,7 @@ pub fn run_load(path: &str) -> anyhow::Result<()> {
 
     let mut writer = StreamWriter::try_new(stdout(), &schema)?;
 
-    while let Some(batch) = reader.next() {
+    while let Some(batch) = file_reader.next() {
         writer.write(&batch?)?;
     }
     writer.finish()?;

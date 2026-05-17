@@ -8,12 +8,10 @@ pub fn run_save(path: &str) -> anyhow::Result<()> {
     let mut writer = WriterBuilder::new().build(file);
 
     let mut reader = StreamReader::try_new(stdin(), None)?;
-    loop {
-        if let Some(batch) = reader.next() {
-            let batch = batch?;
-            writer.write(&batch)?;
-        }
-        if reader.is_finished() { break }
+
+    for batch in &mut reader {
+        let batch = batch?;
+        writer.write(&batch)?
     }
     eprintln!("Data saved: pipeline finished.");
     Ok(())

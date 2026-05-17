@@ -1,4 +1,5 @@
 use std::io::{stdin, stdout};
+use std::io::Stdout;
 use arrow::csv::WriterBuilder;
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::StreamWriter;
@@ -9,8 +10,8 @@ pub fn run_tee(path: &str) -> anyhow::Result<()> {
     let mut file_writer = WriterBuilder::new().build(file);
 
     let mut reader = StreamReader::try_new(stdin(), None)?;
-    let mut writer: Option<StreamWriter<_>> = None;
-
+    let mut writer: Option<StreamWriter<Stdout>> = None;
+    
     for batch in &mut reader {
         let batch = batch?;
         file_writer.write(&batch)?;
@@ -27,4 +28,6 @@ pub fn run_tee(path: &str) -> anyhow::Result<()> {
         w.finish()?;
     }
     Ok(())
+
 }
+
