@@ -46,6 +46,9 @@ pub fn run_script(path: &str, flags: Vec<(String, String)>) -> anyhow::Result<()
             kwargs.set_item(k, v)?;
         }
 
+        // Main exec loop block
+        // later: exec from binary rather than just pyfn
+
         let mut reader = StreamReader::try_new(stdin(), None)?;
         let mut writer: Option<StreamWriter<_>> = None;
 

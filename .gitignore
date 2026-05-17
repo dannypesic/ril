@@ -3,8 +3,6 @@
 __pycache__
 mvp-plan.md
 .DS_Store
-
-test/results.csv
 .idea
 ril
 ril.py

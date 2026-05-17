@@ -9,12 +9,10 @@ pipeline = { stage ~ ("|" ~ stage)* }
 stage = _{ builtin | script }
 
 // Known builtin names
-builtin = _{ load | save | filter | select | each }
+builtin = _{ load | save | tee }
 load    = { "load" ~ path }
 save    = { "save" ~ path }
-filter  = { "filter" ~ expr }
-select  = { "select" ~ ident+ }
-each    = { "each" ~ "{" ~ stage ~ "}" }
+tee     = { "tee" ~ path }
 
 // A script: path to a .py file or binary, plus optional flags
 script  = { path ~ flag* }

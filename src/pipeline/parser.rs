@@ -36,11 +36,15 @@ pub fn parse(input: &str) -> anyhow::Result<Vec<Stage>> {
             Rule::save => stages.push(Stage::Builtin(BuiltinStage::Save {
                 path: extract_path(pair),
             })),
+            Rule::tee => stages.push(Stage::Builtin(BuiltinStage::Tee {
+                path: extract_path(pair),
+            })),
             Rule::script => stages.push(Stage::Script(ScriptStage {
                 path: extract_path(pair.clone()),
                 flags: extract_flags(pair),
             })),
-            // other main keywords and stuff
+
+
             _ => {}
         }
     }

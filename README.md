@@ -69,7 +69,7 @@ def process(batch):
 | `xN`   | `model.py x4`        |
 | `xD`   | `model.py xD`        |
 
-`tee`, `xN`, and `xD` currently WIP.
+`xN` and `xD` currently WIP.
 
 ## Multiprocessing
 
@@ -89,8 +89,7 @@ ril pipeline.ril
 
 To try a working example, run the test pipeline via `ril` from the repo root.
 
-This loads `test/data.csv`, stream through `test/add.py` (which adds two columns together) and `test/diff.py` (which takes their difference), then writes the result to `test/results.csv`.
-
+This loads `test/data.csv`, stream through `test/add.py` (which adds two columns together), checkpoints with `tee` to `test.check.csv`, streams through `test/diff.py` (which takes their difference), then writes the result to `test/results.csv`.
 
 ## Current limitations
 
@@ -100,11 +99,9 @@ Currently, ril lacks significant error handling along with parallel compute with
 
 - More advanced error handling systems
 - Subprocesses manage workers for easy and intuitive parallel compute (`test.py x3`)
-- Disk checkpointing/`tee`
 - Dynamic worker process allocation with `xD`
 - Live progress display
 - Chunk size customizability
-- UV compatibility
 
 ## Building
 
@@ -112,5 +109,5 @@ Currently, ril lacks significant error handling along with parallel compute with
 cargo build --release
 ```
 
-Requires Rust and Python 3. On first run, ril will automatically create a `.venv` and `ril.py` in your project directory and install `pyarrow` and `arro3-core`, so no manual environment setup is needed.
+Requires Rust and Python 3.14. On first run, ril will automatically create a `.venv` and `ril.py` in your project directory and install `pyarrow` and `arro3-core`, so no manual environment setup is needed.
 
