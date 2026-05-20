@@ -56,8 +56,8 @@ impl Worker {
 
         let mut writer: Option<StreamWriter<PipeWriter>> = None;
         let mut mgr_tx = Some(mgr_tx);
-        let mut reader = StreamReader::try_new(mgr_rx, None)?;
-
+        let mut reader: Option<StreamReader<PipeReader>> = None;
+        let mut mgr_rx = Some(mgr_rx);
 
         loop {
             match rx.recv() {
@@ -70,9 +70,17 @@ impl Worker {
                         }
                     };
                     w.write(&data)?;
-                    let batch = reader.next()
+                    let r = match reader {
+                        Some(ref mut r) => r,
+                        None => {
+                            reader = Some(StreamReader::try_new(mgr_rx.take().unwrap(), None)?);
+                            reader.as_mut().unwrap()
+                        }
+                    };
+                    let batch = r.next()
                         .ok_or_else(|| anyhow::anyhow!("worker closed pipe early"))??;
-                    result_tx.send((index, batch))?; }
+                    result_tx.send((index, batch))?;
+                }
                 Err(_) => {
                     break;
                 }
@@ -80,6 +88,9 @@ impl Worker {
         }
         if let Some(mut w) = writer {
             w.finish()?;
+        }
+        if let Some(mut r) = reader {
+            for _ in &mut r {} // keep mgr_rx alive until worker writes its EOS
         }
         Ok(())
     }
