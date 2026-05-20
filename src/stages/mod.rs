@@ -1,6 +1,8 @@
 pub mod builtins;
 mod exec;
 pub mod script_manager;
+pub mod worker;
+pub mod manager;
 
 #[derive(Clone)]
 pub enum Stage {

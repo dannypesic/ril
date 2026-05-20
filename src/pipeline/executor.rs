@@ -10,7 +10,6 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
         anyhow::bail!("empty pipeline");
     }
 
-
     let exe = std::env::current_exe()?;
     let mut children: Vec<Child> = Vec::new();
 
