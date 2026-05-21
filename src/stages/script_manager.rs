@@ -6,9 +6,8 @@ use arrow::ipc::writer::StreamWriter;
 use crate::stages::manager::Manager;
 
 pub fn run_manager(path: &String, flags: Vec<(String, String)>, index: usize) -> anyhow::Result<()> {
-
-    let num_workers: usize = 3; //fixed num for now
-
+    
+    let num_workers: usize = 8; //fixed num for now
     let (exe, worker_args) = if path.ends_with(".py") {
         (env::current_exe()?, vec![
             ("--stage-index".to_string(), index.to_string()),
