@@ -8,9 +8,7 @@ pest = "2.8.6"
 pest_derive = "2.8.6"
 pyo3 = { version = "0.28.3", features = ["auto-initialize"] }
 anyhow = "1"
-crossbeam-channel = "0.5.15"
 arrow = "58.1.0"
 pyo3-arrow = "0.17.0"
-clap = { version = "4.6.1", features = ["derive"] }
 command-fds = "0.3.3"
 num_cpus = "1"
