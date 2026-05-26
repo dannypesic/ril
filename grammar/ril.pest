@@ -14,9 +14,10 @@ load    = { "load" ~ path }
 save    = { "save" ~ path }
 tee     = { "tee" ~ path }
 
-// A script: path to a .py file or binary, plus optional flags
-script  = { path ~ flag* }
-path    = { (ASCII_ALPHANUMERIC | "." | "/" | "_" | "-")+ }
+// A script: path to a .py file or binary, optional worker spec, plus optional flags
+script      = { path ~ worker_spec? ~ flag* }
+path        = @{ (ASCII_ALPHANUMERIC | "." | "/" | "_" | "-")+ }
+worker_spec = @{ "x" ~ (ASCII_DIGIT+ | "D") }
 flag    = { "--" ~ ident ~ "=" ~ value }
 
 // Primitives

@@ -1,6 +1,6 @@
 # Routed Interpreter Layer
 
-Pipeline executor that streams Apache Arrow RecordBatches between stages. Write Python transform scripts, chain them with `|`, and ril handles the data flow.
+Parallel pipeline executor that streams Apache Arrow RecordBatches between stages. Write Python transform scripts, chain them with `|`, and ril handles the data flow.
 
 ```
 load data.csv | clean.py | save output.csv
@@ -47,10 +47,16 @@ Works with pandas/numpy as well via PyArrow.
 | `load` | `load data.csv`      |
 | `save` | `save output.csv`    |
 | `tee`  | `tee checkpoint.csv` |
-| `xN`   | `model.py x4`        |
-| `xD`   | `model.py xD`        |
 
-`xN` and `xD` currently WIP.
+### Worker count
+
+Append a worker spec to any script stage to control parallelism:
+
+```
+load data.csv | model.py x4 | save output.csv   # fixed 4 workers
+load data.csv | model.py xD | save output.csv   # one worker per CPU core (WIP)
+load data.csv | model.py    | save output.csv   # default (1 worker)
+```
 
 ## Building
 
@@ -62,12 +68,11 @@ Requires Rust and Python 3.14. On first run, ril automatically creates a `.venv`
 
 ## Current limitations
 
-Limited error handling. Parallel worker count is currently hardcoded.
+Limited error handling.
 
 ### Next
 
-- Custom worker process allocation with `xN`
-- Dynamic worker process allocation with `xD`
+- True dynamic worker allocation (`xD`)
 - More advanced error handling
 - Live progress display
 - Chunk size customizability

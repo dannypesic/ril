@@ -9,11 +9,11 @@ pub fn run_stage(stage: Stage, is_python: bool, index: usize) -> anyhow::Result<
             run_save::run_save(&path),
         Stage::Builtin(BuiltinStage::Tee { path }) =>
             run_tee::run_tee(&path),
-        Stage::Script(ScriptStage { path, flags }) =>
+        Stage::Script(ScriptStage { path, flags, workers }) =>
             if is_python {
                 run_script::run_script(&path, flags)
             } else {
-            script_manager::run_manager(&path, flags, index)
+                script_manager::run_manager(&path, flags, index, workers)
             },
     }
 }

@@ -4,10 +4,15 @@ use std::path::PathBuf;
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::StreamWriter;
 use crate::stages::manager::Manager;
+use crate::stages::WorkerMode;
 
-pub fn run_manager(path: &String, flags: Vec<(String, String)>, index: usize) -> anyhow::Result<()> {
+pub fn run_manager(path: &String, flags: Vec<(String, String)>, index: usize, worker_mode: WorkerMode) -> anyhow::Result<()> {
 
-    let num_workers: usize = 8; //fixed num for now
+    let num_workers: usize = match worker_mode {
+        WorkerMode::Default => 1,
+        WorkerMode::Fixed(n) => n,
+        WorkerMode::Dynamic => num_cpus::get(),
+    };
     let (exe, is_python) = if path.ends_with(".py") {
         (env::current_exe()?, true)
     } else {

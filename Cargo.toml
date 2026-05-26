@@ -13,3 +13,4 @@ arrow = "58.1.0"
 pyo3-arrow = "0.17.0"
 clap = { version = "4.6.1", features = ["derive"] }
 command-fds = "0.3.3"
+num_cpus = "1"

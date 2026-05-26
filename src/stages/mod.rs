@@ -18,7 +18,15 @@ pub enum BuiltinStage {
 }
 
 #[derive(Clone)]
+pub enum WorkerMode {
+    Default,
+    Fixed(usize),
+    Dynamic,
+}
+
+#[derive(Clone)]
 pub struct ScriptStage {
     pub path: String,
     pub flags: Vec<(String, String)>,
+    pub workers: WorkerMode,
 }
