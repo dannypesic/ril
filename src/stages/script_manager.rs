@@ -6,20 +6,17 @@ use arrow::ipc::writer::StreamWriter;
 use crate::stages::manager::Manager;
 
 pub fn run_manager(path: &String, flags: Vec<(String, String)>, index: usize) -> anyhow::Result<()> {
-    
+
     let num_workers: usize = 8; //fixed num for now
-    let (exe, worker_args) = if path.ends_with(".py") {
-        (env::current_exe()?, vec![
-            ("--stage-index".to_string(), index.to_string()),
-            ("--worker-is-python".to_string(), "true".to_string()),
-        ])
+    let (exe, is_python) = if path.ends_with(".py") {
+        (env::current_exe()?, true)
     } else {
-        (PathBuf::from(path), flags)
+        (PathBuf::from(path), false)
     };
 
     let mut reader = StreamReader::try_new(stdin(), None)?;
     let mut writer: Option<StreamWriter<Stdout>> = None;
-    let mut manager: Manager = Manager::new(exe, num_workers, worker_args)?;
+    let mut manager: Manager = Manager::new(exe, num_workers, flags, index, is_python)?;
 
     for batch in &mut reader {
         let result = manager.run_thread_work(batch?)?;

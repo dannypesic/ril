@@ -33,11 +33,11 @@ pub struct Manager {
     result_rx: mpsc::Receiver<(usize, RecordBatch)>
 }
 impl Manager {
-    pub fn new(exe: PathBuf, count_workers: usize, flags: Vec<(String, String)>) -> anyhow::Result<Self> {
+    pub fn new(exe: PathBuf, count_workers: usize, flags: Vec<(String, String)>, stage_index: usize, is_python: bool) -> anyhow::Result<Self> {
         let (result_tx, result_rx) = mpsc::channel();
         let mut workers = Vec::with_capacity(count_workers);
         for idx in 0..count_workers {
-            workers.push(Worker::new(&exe, idx, &flags, result_tx.clone())?)
+            workers.push(Worker::new(&exe, idx, &flags, result_tx.clone(), stage_index, is_python)?)
         }
         Ok(Self {
             count_workers,

@@ -1,10 +1,6 @@
 use std::process::{Command, Stdio, Child, ChildStdout};
 use crate::stages::Stage;
 
-fn stage_to_args(index: &usize) -> Vec<String> {
-    vec!["--stage-index".to_string(), index.to_string()]
-}
-
 pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
     if stages.is_empty() {
         anyhow::bail!("empty pipeline");
@@ -22,7 +18,7 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
         };
         let venv = std::env::current_dir()?.join(".venv");
         let mut child = Command::new(&exe)
-            .args(stage_to_args(&index))
+            .env("RIL_STAGE_INDEX", index.to_string())
             .env("VIRTUAL_ENV", venv)
             .stdin(stdin)
             .stdout(Stdio::piped())

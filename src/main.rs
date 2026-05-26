@@ -1,39 +1,38 @@
 mod stages;
 mod pipeline;
+mod cli;
 pub mod setup;
 
-use clap::Parser;
 use crate::pipeline::parser;
 use crate::pipeline::executor;
 use crate::setup::setup_env;
-use crate::stages::{builtins};
-
-#[derive(Parser)]
-struct Args {
-    #[arg(long)]
-    stage_index: Option<usize>,
-    #[arg(long)]
-    worker_is_python: Option<bool>,
-}
+use crate::stages::builtins;
+use crate::cli::RunMode;
 
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
-
-    if args.stage_index.is_none() {
-        println!("Preparing environment, please wait...");
-        setup_env()?;
-        println!("Spinning the interpreters...");
+    let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|arg| arg == "-h" || arg == "--help") {
+        println!("help");
+        return Ok(());
     }
 
-    let pipeline_src = std::fs::read_to_string(&"rilfile")?;
-    let stages = parser::parse(&pipeline_src)?;
+    let mode = RunMode::detect()?;
 
-    if let Some(index) = args.stage_index {
-        let is_python = args.worker_is_python.unwrap_or(false);
-        builtins::run_stage(stages[index].clone(), is_python, index).expect("Stage failed to run");
-    }
-    else {
-        executor::run(stages)?;
+    match mode {
+        RunMode::Pipeline => {
+            println!("Preparing environment, please wait...");
+            setup_env()?;
+            println!("Spinning the interpreters...");
+
+            let pipeline_src = std::fs::read_to_string(&"rilfile")?;
+            let stages = parser::parse(&pipeline_src)?;
+            executor::run(stages)?;
+        }
+        RunMode::StageWorker { index, is_python } => {
+            let pipeline_src = std::fs::read_to_string(&"rilfile")?;
+            let stages = parser::parse(&pipeline_src)?;
+            builtins::run_stage(stages[index].clone(), is_python, index)?;
+        }
     }
 
     Ok(())

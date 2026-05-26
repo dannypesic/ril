@@ -71,3 +71,4 @@ Limited error handling. Parallel worker count is currently hardcoded.
 - More advanced error handling
 - Live progress display
 - Chunk size customizability
+- Proper documentation

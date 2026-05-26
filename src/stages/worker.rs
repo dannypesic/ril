@@ -27,7 +27,7 @@ pub struct Worker {
     pub tx: mpsc::Sender<RecordBatch>,
 }
 impl Worker {
-    pub(crate) fn new(exe: &PathBuf, index: usize, flags: &Vec<(String, String)>, result_tx: mpsc::Sender<(usize, RecordBatch)>) -> anyhow::Result<Self> {
+    pub(crate) fn new(exe: &PathBuf, index: usize, flags: &Vec<(String, String)>, result_tx: mpsc::Sender<(usize, RecordBatch)>, stage_index: usize, is_python: bool) -> anyhow::Result<Self> {
         let (mgr_rx, worker_tx) = pipe()?;
         let (worker_rx, mgr_tx) = pipe()?;
         let (tx, rx) = mpsc::channel();
@@ -37,6 +37,8 @@ impl Worker {
                 FdMapping { parent_fd: OwnedFd::from(worker_rx.try_clone()?), child_fd: 0 },
                 FdMapping { parent_fd: OwnedFd::from(worker_tx.try_clone()?), child_fd: 1 },
             ])?
+            .env("RIL_STAGE_INDEX", stage_index.to_string())
+            .env("RIL_WORKER_IS_PYTHON", is_python.to_string())
             .args(flatten_flags(&flags))
             .spawn()?;
         drop(worker_rx);
