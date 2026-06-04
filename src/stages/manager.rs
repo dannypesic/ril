@@ -8,7 +8,6 @@ fn split_record_batch(batch: RecordBatch, n: usize) -> Vec<RecordBatch> {
     assert!(n > 0);
 
     let total_rows = batch.num_rows();
-
     let base_size = total_rows / n;
     let remainder = total_rows % n;
 
@@ -17,10 +16,7 @@ fn split_record_batch(batch: RecordBatch, n: usize) -> Vec<RecordBatch> {
 
     for i in 0..n {
         let size = base_size + if i < remainder { 1 } else { 0 };
-
-        let sliced = batch.slice(offset, size);
-        out.push(sliced);
-
+        out.push(batch.slice(offset, size));
         offset += size;
     }
 
@@ -30,8 +26,14 @@ fn split_record_batch(batch: RecordBatch, n: usize) -> Vec<RecordBatch> {
 pub struct Manager {
     pub(crate) count_workers: usize,
     workers: Vec<Worker>,
-    result_rx: mpsc::Receiver<(usize, RecordBatch)>
+    result_rx: mpsc::Receiver<(usize, RecordBatch)>,
+    result_tx: mpsc::Sender<(usize, RecordBatch)>,
+    exe: PathBuf,
+    flags: Vec<(String, String)>,
+    stage_index: usize,
+    is_python: bool,
 }
+
 impl Manager {
     pub fn new(exe: PathBuf, count_workers: usize, flags: Vec<(String, String)>, stage_index: usize, is_python: bool) -> anyhow::Result<Self> {
         let (result_tx, result_rx) = mpsc::channel();
@@ -43,7 +45,21 @@ impl Manager {
             count_workers,
             workers,
             result_rx,
+            result_tx,
+            exe,
+            flags,
+            stage_index,
+            is_python,
         })
+    }
+
+    pub fn scale_to(&mut self, target: usize) -> anyhow::Result<()> {
+        while self.workers.len() < target {
+            let idx = self.workers.len();
+            self.workers.push(Worker::new(&self.exe, idx, &self.flags, self.result_tx.clone(), self.stage_index, self.is_python)?);
+        }
+        self.count_workers = self.workers.len();
+        Ok(())
     }
 
     pub fn kill(self) -> anyhow::Result<()> {
@@ -56,7 +72,6 @@ impl Manager {
     }
 
     pub fn run_thread_work(&mut self, batch: RecordBatch) -> anyhow::Result<RecordBatch> {
-
         let sub_batches = split_record_batch(batch, self.count_workers);
 
         for (idx, sub_batch) in sub_batches.into_iter().enumerate() {
@@ -73,5 +88,4 @@ impl Manager {
 
         Ok(concat_batches(&schema, &results.into_iter().map(|b| b.unwrap()).collect::<Vec<_>>())?)
     }
-
 }

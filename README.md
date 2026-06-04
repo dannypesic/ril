@@ -50,12 +50,14 @@ Works with pandas/numpy as well via PyArrow.
 
 ### Worker count
 
-Append a worker spec to any script stage to control parallelism:
+By default, ril runs in dynamic mode: it profiles the first 5 batches per script stage (dropping the min and max, averaging the rest), then allocates workers proportionally to equalize throughput across stages, up to your CPU core count. Load, save, and tee are excluded since they're I/O-bound.
+
+If any stage has an explicit worker tag, dynamic mode is disabled for the whole pipeline — untagged stages get 1 worker, tagged stages get exactly N:
 
 ```
-load data.csv | model.py x4 | save output.csv   # fixed 4 workers
-load data.csv | model.py xD | save output.csv   # one worker per CPU core (WIP)
-load data.csv | model.py    | save output.csv   # default (1 worker)
+load data.csv | model.py x4 | save output.csv   # fixed mode: model.py gets 4 workers
+load data.csv | model.py xD | save output.csv   # fixed mode: one worker per CPU core
+load data.csv | model.py    | save output.csv   # dynamic mode: workers auto-allocated
 ```
 
 ## Building
@@ -72,7 +74,6 @@ Limited error handling.
 
 ### Next
 
-- True dynamic worker allocation (`xD`)
 - More advanced error handling
 - Live progress display
 - Chunk size customizability
