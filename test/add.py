@@ -1,10 +1,11 @@
 from ril import rilfn
 import pyarrow as pa
 import pyarrow.compute as pc
+import time
 
 @rilfn
 def process(batch):
-    print("Python Running!")
+    time.sleep(0.4)
     batch = pa.record_batch(batch)
 
     data = batch.to_pydict()

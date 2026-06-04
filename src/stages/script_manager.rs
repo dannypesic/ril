@@ -59,6 +59,7 @@ pub fn run_manager(path: &String, flags: Vec<(String, String)>, index: usize, wo
     let mut batch_times: Vec<Duration> = Vec::with_capacity(PROFILE_BATCHES);
     let mut timed = !auto_alloc;
     let mut scale_rx: Option<mpsc::Receiver<usize>> = None;
+    let mut batch_num = 0usize;
 
     for batch in &mut reader {
         let t = Instant::now();
@@ -90,6 +91,8 @@ pub fn run_manager(path: &String, flags: Vec<(String, String)>, index: usize, wo
             }
         };
         w.write(&result)?;
+        batch_num += 1;
+        eprintln!("RIL_BATCH:{batch_num}");
     }
 
     if let Some(mut w) = writer {

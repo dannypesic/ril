@@ -4,7 +4,6 @@ import pyarrow.compute as pc
 
 @rilfn
 def process(batch):
-    print("Bye!")
     batch = pa.record_batch(batch)
 
     data = batch.to_pydict()

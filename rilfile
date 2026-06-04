@@ -1,1 +1,1 @@
-load test/data.csv | test/add.py | tee test/check.csv | test/diff.py | save test/results.csv
+load test/data.csv +30 | test/add.py | tee test/check.csv | test/diff.py | save test/results.csv
