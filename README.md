@@ -22,7 +22,7 @@ Each stage runs as its own process, receiving Arrow RecordBatches from the previ
 
 Within each stage, ril spawns multiple worker processes and splits each incoming batch across them: each worker gets a slice, processes it in parallel, and the results are reassembled in order. This sidesteps the GIL entirely since each interpreter runs independently, and delivers close to linear speedup up to your core count (~8× on an 8-core CPU).
 
-Data streams through in chunks of 1000 rows rather than loading everything at once, so memory usage stays constant regardless of file size. The `@rilfn` function is called once per chunk, which means operations that need the full dataset (e.g. a global sort) don't belong inside a single stage.
+Data streams through in chunks (1000 rows by default, configurable with `+N` on `load`) rather than loading everything at once, so memory usage stays constant regardless of file size. The `@rilfn` function is called once per chunk, which means operations that need the full dataset (e.g. a global sort) don't belong inside a single stage.
 
 ### Writing a stage
 
@@ -42,11 +42,12 @@ Works with pandas/numpy as well via PyArrow.
 
 ## Built-in stages
 
-| Stage  | Example              |
-|--------|----------------------|
-| `load` | `load data.csv`      |
-| `save` | `save output.csv`    |
-| `tee`  | `tee checkpoint.csv` |
+| Stage  | Example                   | Notes                                      |
+|--------|---------------------------|--------------------------------------------|
+| `load` | `load data.csv`           | streams in batches of 1000 rows by default |
+| `load` | `load data.csv +500`      | custom batch size (rows per chunk)         |
+| `save` | `save output.csv`         |                                            |
+| `tee`  | `tee checkpoint.csv`      |                                            |
 
 ### Worker count
 
@@ -76,5 +77,4 @@ Limited error handling.
 
 - More advanced error handling
 - Live progress display
-- Chunk size customizability
 - Proper documentation

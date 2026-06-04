@@ -12,7 +12,7 @@ pub enum Stage {
 
 #[derive(Clone)]
 pub enum BuiltinStage {
-    Load { path: String },
+    Load { path: String, batch_size: usize },
     Save { path: String },
     Tee { path: String },
 }

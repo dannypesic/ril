@@ -46,9 +46,16 @@ pub fn parse(input: &str) -> anyhow::Result<Vec<Stage>> {
 
     for pair in pairs.into_iter().next().unwrap().into_inner() {
         match pair.as_rule() {
-            Rule::load => stages.push(Stage::Builtin(BuiltinStage::Load {
-                path: extract_path(pair),
-            })),
+            Rule::load => {
+                let batch_size = pair.clone().into_inner()
+                    .find(|p| p.as_rule() == Rule::batch_spec)
+                    .map(|p| p.as_str()[1..].parse::<usize>().unwrap())
+                    .unwrap_or(1000);
+                stages.push(Stage::Builtin(BuiltinStage::Load {
+                    path: extract_path(pair),
+                    batch_size,
+                }))
+            }
             Rule::save => stages.push(Stage::Builtin(BuiltinStage::Save {
                 path: extract_path(pair),
             })),

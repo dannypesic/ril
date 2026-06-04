@@ -10,7 +10,8 @@ stage = _{ builtin | script }
 
 // Known builtin names
 builtin = _{ load | save | tee }
-load    = { "load" ~ path }
+load       = { "load" ~ path ~ batch_spec? }
+batch_spec = @{ "+" ~ ASCII_DIGIT+ }
 save    = { "save" ~ path }
 tee     = { "tee" ~ path }
 
