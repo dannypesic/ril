@@ -5,6 +5,7 @@ use std::process::{Child, ChildStdout, Command, Stdio};
 use std::sync::mpsc;
 use std::thread;
 use command_fds::{CommandFdExt, FdMapping};
+use crate::error::ERROR_PREFIX;
 use crate::pipeline::progress;
 use crate::stages::{BuiltinStage, ScriptStage, Stage, WorkerMode};
 
@@ -55,6 +56,13 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
     let auto_mode = is_auto_mode(&stages);
     let exe = std::env::current_exe()?;
     let venv = std::env::current_dir()?.join(".venv");
+
+    let stage_names: Vec<String> = stages.iter().map(|s| match s {
+        Stage::Builtin(BuiltinStage::Load { path, .. }) => format!("load {path}"),
+        Stage::Builtin(BuiltinStage::Save { path }) => format!("save {path}"),
+        Stage::Builtin(BuiltinStage::Tee { path }) => format!("tee {path}"),
+        Stage::Script(ScriptStage { path, .. }) => path.clone(),
+    }).collect();
 
     let load_idx: Option<usize> = stages.iter().position(|s| {
         matches!(s, Stage::Builtin(BuiltinStage::Load { .. }))
@@ -140,6 +148,7 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
         let timing_tx_clone = timing_tx_opt.as_ref()
             .filter(|_| is_script_stage)
             .cloned();
+        let stage_name = stage_names[index].clone();
 
         thread::spawn(move || {
             let mut timing_sent = false;
@@ -163,6 +172,8 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
                             timing_sent = true;
                         }
                     }
+                } else if let Some(rest) = line.strip_prefix(ERROR_PREFIX) {
+                    eprintln!("error in stage[{index}] `{stage_name}`: {rest}");
                 } else {
                     eprintln!("{line}");
                 }
@@ -197,8 +208,13 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
         });
     }
 
-    for child in &mut children {
-        child.wait()?;
+    for (index, child) in children.iter_mut().enumerate() {
+        let status = child.wait()?;
+        if !status.success() {
+            let name = &stage_names[index];
+            let code = status.code().map(|c| c.to_string()).unwrap_or_else(|| "signal".into());
+            anyhow::bail!("stage[{index}] `{name}` exited with code {code}");
+        }
     }
 
     progress_handle.join().ok();

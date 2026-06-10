@@ -45,11 +45,11 @@ impl Worker {
         drop(worker_tx);
         Ok(Self {
             process,
-            thread: thread::spawn(
-                move || {
-                    Self::thread_exec(rx, mgr_rx, mgr_tx, result_tx, index).unwrap()
+            thread: thread::spawn(move || {
+                if let Err(e) = Self::thread_exec(rx, mgr_rx, mgr_tx, result_tx, index) {
+                    eprintln!("RIL_ERROR:worker[{index}]: {e}");
                 }
-            ),
+            }),
             tx,
         })
     }
@@ -60,6 +60,7 @@ impl Worker {
         let mut mgr_tx = Some(mgr_tx);
         let mut reader: Option<StreamReader<PipeReader>> = None;
         let mut mgr_rx = Some(mgr_rx);
+        let mut batch_index: usize = 0;
 
         loop {
             match rx.recv() {
@@ -80,8 +81,9 @@ impl Worker {
                         }
                     };
                     let batch = r.next()
-                        .ok_or_else(|| anyhow::anyhow!("worker closed pipe early"))??;
+                        .ok_or_else(|| anyhow::anyhow!("worker[{index}] batch {batch_index}: pipe closed before result"))??;
                     result_tx.send((index, batch))?;
+                    batch_index += 1;
                 }
                 Err(_) => {
                     break;

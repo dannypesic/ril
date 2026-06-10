@@ -5,10 +5,18 @@ use std::io::{stdin, stdout};
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::StreamWriter;
 use arrow::record_batch::RecordBatch;
-
+use crate::error::{RilError, emit_and_wrap};
 
 fn get_from_py(batch: RecordBatch, main_fn: &Bound<'_, PyAny>, kwargs: &Bound<'_, pyo3::types::PyDict>) -> PyResult<PyRecordBatch> {
     main_fn.call((PyRecordBatch::new(batch),), Some(kwargs))?.extract()
+}
+
+fn py_err_to_anyhow(e: PyErr, py: Python<'_>) -> anyhow::Error {
+    let traceback = e.traceback(py)
+        .and_then(|tb| tb.format().ok())
+        .unwrap_or_default();
+    let msg = format!("{traceback}{e}");
+    emit_and_wrap(RilError::Python { traceback: msg })
 }
 
 pub fn run_script(path: &str, flags: Vec<(String, String)>) -> anyhow::Result<()> {
@@ -51,10 +59,17 @@ pub fn run_script(path: &str, flags: Vec<(String, String)>) -> anyhow::Result<()
 
         let mut reader = StreamReader::try_new(stdin(), None)?;
         let mut writer: Option<StreamWriter<_>> = None;
+        let mut batch_index: usize = 0;
 
         for batch in &mut reader {
             let batch = batch?;
-            let result = get_from_py(batch, &main_fn, &kwargs)?.into_inner();
+            let result = get_from_py(batch, &main_fn, &kwargs)
+                .map_err(|e| {
+                    let base = py_err_to_anyhow(e, py);
+                    anyhow::anyhow!("batch {batch_index}: {base}")
+                })?
+                .into_inner();
+            batch_index += 1;
             let w = match writer {
                 Some(ref mut w) => w,
                 None => {

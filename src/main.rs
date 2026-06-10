@@ -2,6 +2,7 @@ mod stages;
 mod pipeline;
 mod cli;
 pub mod setup;
+pub mod error;
 
 use crate::pipeline::parser;
 use crate::pipeline::executor;
