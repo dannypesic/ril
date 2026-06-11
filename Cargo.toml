@@ -8,8 +8,8 @@ pest = "2.8.6"
 pest_derive = "2.8.6"
 pyo3 = { version = "0.28.3", features = ["auto-initialize"] }
 anyhow = "1"
-arrow = "58.1.0"
-pyo3-arrow = "0.17.0"
+arrow = "59.0.0"
+pyo3-arrow = "0.18.0"
 command-fds = "0.3.3"
 num_cpus = "1"
 

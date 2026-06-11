@@ -1,7 +1,7 @@
 use pyo3::prelude::*;
 use pyo3_arrow::PyRecordBatch;
 use std::ffi::CString;
-use std::io::{stdin, stdout};
+use std::io::{stdin, stdout, Write};
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::StreamWriter;
 use arrow::record_batch::RecordBatch;
@@ -67,6 +67,7 @@ pub fn run_script(path: &str, flags: Vec<(String, String)>) -> anyhow::Result<()
                 }
             };
             w.write(&result)?;
+            stdout().flush()?;
         }
         if let Some(mut w) = writer {
             w.finish()?;
