@@ -13,6 +13,10 @@ use crate::stages::WorkerMode;
 const PROFILE_BATCHES: usize = 5;
 
 fn trimmed_mean_ms(times: &[Duration]) -> f64 {
+    if times.len() < 3 {
+        let sum: Duration = times.iter().sum();
+        return sum.as_secs_f64() * 1000.0 / times.len().max(1) as f64;
+    }
     let mut sorted = times.to_vec();
     sorted.sort();
     let trimmed = &sorted[1..sorted.len() - 1];

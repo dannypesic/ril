@@ -68,13 +68,3 @@ cargo build --release
 ```
 
 Requires Rust and Python 3.14. On first run, ril automatically creates a `.venv` and `ril.py` in your project directory and installs `pyarrow` and `arro3-core`.
-
-## Current limitations
-
-Limited error handling.
-
-### Next
-
-- More advanced error handling
-- Live progress display
-- Proper documentation
