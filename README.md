@@ -1,30 +1,29 @@
-# Routed Interpreter Layer
+# ril
 
-Parallel pipeline executor that streams Apache Arrow RecordBatches between stages. Write Python transform scripts, chain them with `|`, and ril handles the data flow.
+Your Python scripts run while most of your CPU is sleeping. ril fixes that.
 
 ```
-load data.csv | clean.py | save output.csv
+load data.csv | clean.py | featurize.py x4 | save output.csv
 ```
 
-Run with `ril` in the directory containing your `rilfile`.
+ril streams Apache Arrow RecordBatches between stages. Each stage is a separate Python process, meaning no GIL contention, no threads, and no rewriting your code for `multiprocessing`. Your functions just transform data; ril handles splitting, parallelism, and reassembly.
 
-### Compatibility
+Data streams through in chunks, so memory stays constant regardless of file size. A 50GB CSV uses the same peak memory as a 500MB one.
 
-ril connects directly with `pip` or `uv` in your project to ensure clean integration:
-- `pip`: default
-- `uv`: if `uv.lock` detected
+Built for data engineers, ML practitioners, and researchers who write Python transforms on large datasets and are tired of waiting for single-core pandas or spinning up distributed infrastructure to parallelize a handful of scripts.
 
-ril supports Python 3.11–3.14. On startup it auto-detects the newest compatible interpreter available on your PATH (trying `python3.14`, `python3.13`, `python3.12`, `python3.11`, then `python3` as a fallback).
+**A rilfile:**
 
-## How it works
+```
+load data.csv +2000
+| clean.py
+| tee cleaned_data.csv
+| featurize.py
+| score.py
+| save output.csv
+```
 
-Each stage runs as its own process, receiving Arrow RecordBatches from the previous stage and forwarding results to the next. Stages run concurrently with backpressure automatic via Unix pipes.
-
-Within each stage, ril spawns multiple worker processes and splits each incoming batch across them: each worker gets a slice, processes it in parallel, and the results are reassembled in order. This sidesteps the GIL entirely since each interpreter runs independently, and delivers close to linear speedup up to your core count (~8× on an 8-core CPU).
-
-Data streams through in chunks (1000 rows by default, configurable with `+N` on `load`) rather than loading everything at once, so memory usage stays constant regardless of file size. The `@rilfn` function is called once per chunk, which means operations that need the full dataset (e.g. a global sort) don't belong inside a single stage.
-
-### Writing a stage
+**A stage:**
 
 ```python
 from ril import rilfn
@@ -34,34 +33,78 @@ import pyarrow as pa
 def process(batch):
     batch = pa.record_batch(batch)
     data = batch.to_pydict()
-    data["sum"] = [a + b for a, b in zip(data["value1"], data["value2"])]
+    data["score"] = [x * 2.0 for x in data["value"]]
     return pa.RecordBatch.from_pydict(data)
 ```
 
-Works with pandas/numpy as well via PyArrow.
+ril calls your function once per chunk, passes a `pyarrow.RecordBatch`, and expects one back. Works natively with pandas, numpy, and any other module that supports PyArrow.
 
-## Built-in stages
+---
+
+## Documentation
+
+### How it works
+
+Each stage runs as its own process. Stages receive Arrow RecordBatches from the previous stage over a Unix pipe and forward results to the next. Stages run concurrently; backpressure is automatic via the pipe buffer.
+
+Within each script stage, ril spawns multiple worker processes and splits each incoming batch across them. Each worker gets a chunk, processes it independently, and the results are reassembled in order. Because each worker is a separate interpreter, there is no shared GIL, so all cores run consistently. Memory usage stays constant regardless of file size since data streams through in chunks rather than loading all at once.
+
+The `@rilfn` function is called once per chunk. Operations that require the full dataset (e.g. a global sort) do not belong inside a single stage.
+
+### What about free-threaded Python?
+
+Free-threaded builds (3.13t, 3.14t) remove the GIL, but threads still share memory, meaning shared reference counts, Python object mutations, and C extensions that weren't written with thread safety in mind. Most of the data stack (numpy, pandas, and most ML libraries) isn't fully thread-safe yet, so you'd need to audit every dependency before trusting a threaded pipeline.
+
+ril uses separate processes. Each worker has its own interpreter and memory space, so none of that applies; your existing scripts work as-is. If you do run a free-threaded build, ril still works fine; you just get extra headroom within each worker on top of the parallelism across them.
+
+### Writing a stage
+
+Create a `.py` file with a function decorated with `@rilfn`:
+
+```python
+from ril import rilfn
+import pyarrow.compute as pc
+
+@rilfn
+def process(batch):
+    # batch is a pyarrow RecordBatch
+    mask = pc.greater(batch.column("value"), 0)
+    return batch.filter(mask)
+```
+
+Place the file in your project directory and reference it by name in the rilfile. ril calls the decorated function once per chunk with a `pyarrow.RecordBatch` and expects a `pyarrow.RecordBatch` back.
+
+### Built-in stages
 
 | Stage  | Example                   | Notes                                      |
 |--------|---------------------------|--------------------------------------------|
 | `load` | `load data.csv`           | streams in batches of 1000 rows by default |
 | `load` | `load data.csv +500`      | custom batch size (rows per chunk)         |
-| `save` | `save output.csv`         |                                            |
-| `tee`  | `tee checkpoint.csv`      |                                            |
+| `save` | `save output.csv`         | terminal stage, writes final output                        |
+| `tee`  | `tee checkpoint.csv`      | writes to file and passes batches through  |
 
 ### Worker count
 
-By default, ril runs in dynamic mode: it profiles the first 5 batches per script stage (dropping the min and max, averaging the rest), then allocates workers proportionally to equalize throughput across stages, up to your CPU core count. Load, save, and tee are excluded since they're I/O-bound.
+By default, ril runs in dynamic mode: it profiles the first 5 batches per script stage (dropping the min and max, averaging the rest), then allocates workers proportionally to equalize throughput across stages, up to your CPU core count. `load`, `save`, and `tee` are excluded since they are I/O-bound.
 
-If any stage has an explicit worker tag, dynamic mode is disabled for the whole pipeline — untagged stages get 1 worker, tagged stages get exactly N:
+If any stage has an explicit worker tag, fixed mode applies to the whole pipeline: untagged stages get 1 worker, tagged stages get exactly N:
 
 ```
-load data.csv | model.py x4 | save output.csv   # fixed mode: model.py gets 4 workers
-load data.csv | model.py xD | save output.csv   # fixed mode: one worker per CPU core
-load data.csv | model.py    | save output.csv   # dynamic mode: workers auto-allocated
+load data.csv | model.py x4 | save output.csv   # fixed: model.py gets 4 workers
+load data.csv | model.py xD | save output.csv   # fixed: one worker per CPU core
+load data.csv | model.py    | save output.csv   # dynamic: workers auto-allocated
 ```
 
-## Building
+### Compatibility
+
+ril connects to `pip` or `uv` in your project to manage the `.venv`:
+
+- `pip`: default
+- `uv`: used automatically if a `uv.lock` file is detected
+
+On startup, ril auto-detects the newest compatible Python interpreter available on your PATH, trying `python3.14`, `python3.13`, `python3.12`, `python3.11`, then `python3` as a fallback.
+
+### Building
 
 ```bash
 cargo build --release
@@ -72,7 +115,7 @@ Requires Rust and Python 3.11–3.14. On first run, ril automatically creates a 
 To build against a specific Python version, set `PYO3_PYTHON` before running cargo:
 
 ```bash
-PYO3_PYTHON=python3.13 cargo build --release
+PYO3_PYTHON=python3.12 cargo build --release
 ```
 
-Pre-built release binaries are each compiled against a specific Python version, so check the release asset name for the version they embed. Building from source uses whichever 3.11–3.14 interpreter `PYO3_PYTHON` points to (or the first one found on your PATH if unset).
+`PYO3_PYTHON` controls which Python interpreter the binary links against at compile time. Pre-built release binaries are compiled per Python version, found in the Github releases page. Download the asset matching your Python install.
