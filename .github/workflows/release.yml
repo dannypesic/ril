@@ -63,6 +63,19 @@ jobs:
       - name: Stage binary
         run: cp target/release/ril ril-${{ matrix.target_os }}-${{ matrix.arch }}-py${{ matrix.python }}
 
+      - name: Make binary portable (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          BINARY="ril-${{ matrix.target_os }}-${{ matrix.arch }}-py${{ matrix.python }}"
+          PYVER="${{ matrix.python }}"
+          PYTHON_LIB=$(otool -L "$BINARY" | grep -i python | awk '{print $1}' | head -1)
+          if [ -n "$PYTHON_LIB" ]; then
+            install_name_tool -change "$PYTHON_LIB" "@rpath/Python" "$BINARY"
+            install_name_tool -add_rpath "/Library/Frameworks/Python.framework/Versions/$PYVER" "$BINARY"
+            install_name_tool -add_rpath "/opt/homebrew/Frameworks/Python.framework/Versions/$PYVER" "$BINARY"
+            install_name_tool -add_rpath "/opt/homebrew/opt/python@$PYVER/Frameworks/Python.framework/Versions/$PYVER" "$BINARY"
+          fi
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
