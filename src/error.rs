@@ -28,12 +28,4 @@ impl fmt::Display for RilError {
 
 impl std::error::Error for RilError {}
 
-/// Prefix written to stderr so the orchestrator can detect and format stage errors.
 pub const ERROR_PREFIX: &str = "RIL_ERROR:";
-
-/// Emit a structured error line to stderr and return it as an anyhow error.
-pub fn emit_and_wrap(msg: impl fmt::Display) -> anyhow::Error {
-    let s = msg.to_string();
-    eprintln!("{}{}", ERROR_PREFIX, s);
-    anyhow::anyhow!("{}", s)
-}

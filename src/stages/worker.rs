@@ -12,22 +12,28 @@ use command_fds::{CommandFdExt, FdMapping};
 fn flatten_flags(flags: &[(String, String)]) -> Vec<&str> {
     flags.iter()
         .flat_map(|(k, v)| {
-            if v.is_empty() {
-                vec![k.as_str()]
-            } else {
-                vec![k.as_str(), v.as_str()]
-            }
+            if v.is_empty() { vec![k.as_str()] } else { vec![k.as_str(), v.as_str()] }
         })
         .collect()
 }
+
+pub type WorkerResult = (usize, Result<RecordBatch, String>);
 
 pub struct Worker {
     pub process: Child,
     pub(crate) thread: thread::JoinHandle<()>,
     pub tx: mpsc::Sender<RecordBatch>,
 }
+
 impl Worker {
-    pub(crate) fn new(exe: &PathBuf, index: usize, flags: &Vec<(String, String)>, result_tx: mpsc::Sender<(usize, RecordBatch)>, stage_index: usize, is_python: bool) -> anyhow::Result<Self> {
+    pub(crate) fn new(
+        exe: &PathBuf,
+        index: usize,
+        flags: &Vec<(String, String)>,
+        result_tx: mpsc::Sender<WorkerResult>,
+        stage_index: usize,
+        is_python: bool,
+    ) -> anyhow::Result<Self> {
         let (mgr_rx, worker_tx) = pipe()?;
         let (worker_rx, mgr_tx) = pipe()?;
         let (tx, rx) = mpsc::channel();
@@ -43,24 +49,29 @@ impl Worker {
             .spawn()?;
         drop(worker_rx);
         drop(worker_tx);
+
         Ok(Self {
             process,
             thread: thread::spawn(move || {
-                if let Err(e) = Self::thread_exec(rx, mgr_rx, mgr_tx, result_tx, index) {
-                    eprintln!("RIL_ERROR:worker[{index}]: {e}");
+                if let Err(e) = Self::exec(rx, mgr_rx, mgr_tx, &result_tx, index) {
+                    let _ = result_tx.send((index, Err(e.to_string())));
                 }
             }),
             tx,
         })
     }
 
-    fn thread_exec(rx: mpsc::Receiver<RecordBatch>, mgr_rx: PipeReader, mgr_tx: PipeWriter, result_tx: mpsc::Sender<(usize, RecordBatch)>, index: usize) -> anyhow::Result<()> {
-
+    fn exec(
+        rx: mpsc::Receiver<RecordBatch>,
+        mgr_rx: PipeReader,
+        mgr_tx: PipeWriter,
+        result_tx: &mpsc::Sender<WorkerResult>,
+        index: usize,
+    ) -> anyhow::Result<()> {
         let mut writer: Option<StreamWriter<PipeWriter>> = None;
         let mut mgr_tx = Some(mgr_tx);
         let mut reader: Option<StreamReader<PipeReader>> = None;
         let mut mgr_rx = Some(mgr_rx);
-        let mut batch_index: usize = 0;
 
         loop {
             match rx.recv() {
@@ -68,11 +79,15 @@ impl Worker {
                     let w = match writer {
                         Some(ref mut w) => w,
                         None => {
-                            writer = Some(StreamWriter::try_new(mgr_tx.take().expect("mgr_tx already consumed"), data.schema_ref())?);
+                            writer = Some(StreamWriter::try_new(
+                                mgr_tx.take().unwrap(),
+                                data.schema_ref(),
+                            )?);
                             writer.as_mut().unwrap()
                         }
                     };
                     w.write(&data)?;
+
                     let r = match reader {
                         Some(ref mut r) => r,
                         None => {
@@ -80,21 +95,25 @@ impl Worker {
                             reader.as_mut().unwrap()
                         }
                     };
-                    let batch = r.next()
-                        .ok_or_else(|| anyhow::anyhow!("worker[{index}] batch {batch_index}: pipe closed before result"))??;
-                    result_tx.send((index, batch))?;
-                    batch_index += 1;
+
+                    match r.next() {
+                        Some(Ok(batch)) => result_tx.send((index, Ok(batch)))?,
+                        Some(Err(e)) => return Err(e.into()),
+                        None => {
+                            let _ = result_tx.send((index, Err(String::new())));
+                            break;
+                        }
+                    }
                 }
-                Err(_) => {
-                    break;
-                }
+                Err(_) => break,
             }
         }
+
         if let Some(mut w) = writer {
             w.finish()?;
         }
         if let Some(mut r) = reader {
-            for _ in &mut r {} // keep mgr_rx alive until worker writes its EOS
+            for _ in &mut r {}
         }
         Ok(())
     }

@@ -10,7 +10,14 @@ use crate::setup::setup_env;
 use crate::stages::builtins;
 use crate::cli::RunMode;
 
-fn main() -> anyhow::Result<()> {
+fn main() {
+    if let Err(e) = run() {
+        eprintln!("ril: {e}");
+        std::process::exit(1);
+    }
+}
+
+fn run() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
         println!("help");
@@ -25,14 +32,23 @@ fn main() -> anyhow::Result<()> {
             setup_env()?;
             println!("Spinning the interpreters...");
 
-            let pipeline_src = std::fs::read_to_string(&"rilfile")?;
+            let pipeline_src = std::fs::read_to_string("rilfile")?;
             let stages = parser::parse(&pipeline_src)?;
-            executor::run(stages)?;
+
+            if let Err(_) = executor::run(stages) {
+                eprint!("\r\x1b[2K");
+                std::process::exit(1);
+            }
         }
         RunMode::StageWorker { index, is_python } => {
-            let pipeline_src = std::fs::read_to_string(&"rilfile")?;
+            let pipeline_src = std::fs::read_to_string("rilfile")?;
             let stages = parser::parse(&pipeline_src)?;
-            builtins::run_stage(stages[index].clone(), is_python, index)?;
+
+            if let Err(e) = builtins::run_stage(stages[index].clone(), is_python, index) {
+                let msg = e.to_string().replace('\n', "\\n");
+                eprintln!("RIL_ERROR:{msg}");
+                std::process::exit(1);
+            }
         }
     }
 

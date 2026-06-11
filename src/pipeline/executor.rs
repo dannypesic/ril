@@ -71,8 +71,6 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
         .filter(|(_, s)| matches!(s, Stage::Script(_)))
         .map(|(i, _)| i)
         .collect();
-    // Last non-tee stage is where we read RIL_BATCH for overall progress.
-    // Prefer save → last script → load, naturally falls out of this filter.
     let progress_stage_idx: Option<usize> = stages.iter().enumerate().rev()
         .find(|(_, s)| !matches!(s, Stage::Builtin(BuiltinStage::Tee { .. })))
         .map(|(i, _)| i);
@@ -152,6 +150,7 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
 
         thread::spawn(move || {
             let mut timing_sent = false;
+            let mut error_shown = false;
             for line in BufReader::new(stderr).lines().flatten() {
                 if let Some(rest) = line.strip_prefix("RIL_TOTAL_BATCHES:") {
                     if is_load {
@@ -173,7 +172,11 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
                         }
                     }
                 } else if let Some(rest) = line.strip_prefix(ERROR_PREFIX) {
-                    eprintln!("error in stage[{index}] `{stage_name}`: {rest}");
+                    if !error_shown {
+                        error_shown = true;
+                        let decoded = rest.replace("\\n", "\n");
+                        eprintln!("\r\x1b[2K\nril error: stage {index} ({stage_name})\n\n{decoded}\n");
+                    }
                 } else {
                     eprintln!("{line}");
                 }

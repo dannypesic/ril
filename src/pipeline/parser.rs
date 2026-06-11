@@ -30,7 +30,7 @@ fn extract_worker_mode(pair: pest::iterators::Pair<Rule>) -> WorkerMode {
     match pair.into_inner().find(|p| p.as_rule() == Rule::worker_spec) {
         None => WorkerMode::Default,
         Some(spec) => {
-            let s = &spec.as_str()[1..]; // strip leading 'x'
+            let s = &spec.as_str()[1..];
             if s == "D" {
                 WorkerMode::Dynamic
             } else {

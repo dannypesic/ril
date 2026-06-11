@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use std::sync::mpsc;
 use arrow::array::RecordBatch;
 use arrow::compute::concat_batches;
-use crate::stages::worker::Worker;
+use crate::stages::worker::{Worker, WorkerResult};
 
 fn split_record_batch(batch: RecordBatch, n: usize) -> Vec<RecordBatch> {
     assert!(n > 0);
@@ -26,8 +26,8 @@ fn split_record_batch(batch: RecordBatch, n: usize) -> Vec<RecordBatch> {
 pub struct Manager {
     pub(crate) count_workers: usize,
     workers: Vec<Worker>,
-    result_rx: mpsc::Receiver<(usize, RecordBatch)>,
-    result_tx: mpsc::Sender<(usize, RecordBatch)>,
+    result_rx: mpsc::Receiver<WorkerResult>,
+    result_tx: mpsc::Sender<WorkerResult>,
     exe: PathBuf,
     flags: Vec<(String, String)>,
     stage_index: usize,
@@ -35,7 +35,13 @@ pub struct Manager {
 }
 
 impl Manager {
-    pub fn new(exe: PathBuf, count_workers: usize, flags: Vec<(String, String)>, stage_index: usize, is_python: bool) -> anyhow::Result<Self> {
+    pub fn new(
+        exe: PathBuf,
+        count_workers: usize,
+        flags: Vec<(String, String)>,
+        stage_index: usize,
+        is_python: bool,
+    ) -> anyhow::Result<Self> {
         let (result_tx, result_rx) = mpsc::channel();
         let mut workers = Vec::with_capacity(count_workers);
         for idx in 0..count_workers {
@@ -56,7 +62,10 @@ impl Manager {
     pub fn scale_to(&mut self, target: usize) -> anyhow::Result<()> {
         while self.workers.len() < target {
             let idx = self.workers.len();
-            self.workers.push(Worker::new(&self.exe, idx, &self.flags, self.result_tx.clone(), self.stage_index, self.is_python)?);
+            self.workers.push(Worker::new(
+                &self.exe, idx, &self.flags,
+                self.result_tx.clone(), self.stage_index, self.is_python,
+            )?);
         }
         self.count_workers = self.workers.len();
         Ok(())
@@ -81,11 +90,17 @@ impl Manager {
         let mut results: Vec<Option<RecordBatch>> = vec![None; self.count_workers];
 
         for _ in 0..self.count_workers {
-            let (idx, batch) = self.result_rx.recv()?;
-            results[idx] = Some(batch);
+            match self.result_rx.recv() {
+                Ok((idx, Ok(batch))) => results[idx] = Some(batch),
+                Ok((_, Err(msg))) if msg.is_empty() => {
+                    anyhow::bail!("worker failed");
+                }
+                Ok((_, Err(msg))) => anyhow::bail!("{msg}"),
+                Err(_) => anyhow::bail!("worker result channel closed unexpectedly"),
+            }
         }
-        let schema = results[0].as_ref().unwrap().schema();
 
+        let schema = results[0].as_ref().unwrap().schema();
         Ok(concat_batches(&schema, &results.into_iter().map(|b| b.unwrap()).collect::<Vec<_>>())?)
     }
 }
