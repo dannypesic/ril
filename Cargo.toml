@@ -12,3 +12,6 @@ arrow = "58.1.0"
 pyo3-arrow = "0.17.0"
 command-fds = "0.3.3"
 num_cpus = "1"
+
+[dev-dependencies]
+tempfile = "3"
