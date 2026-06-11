@@ -1,6 +1,6 @@
 // ril.pest
 
-WHITESPACE = _{ " " | "\t" }
+WHITESPACE = _{ " " | "\t" | "\n" | "\r\n" }
 
 // A full pipeline: stage | stage | stage
 pipeline = { stage ~ ("|" ~ stage)* }
