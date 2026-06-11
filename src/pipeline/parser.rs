@@ -2,7 +2,7 @@ use pest::Parser;
 use pest_derive::Parser;
 use crate::stages::{Stage, BuiltinStage, ScriptStage, WorkerMode};
 
-#[derive(Parser)] //ignore
+#[derive(Parser)]
 #[grammar = "grammar/ril.pest"]
 struct RilParser;
 
