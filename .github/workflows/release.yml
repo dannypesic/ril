@@ -6,6 +6,9 @@ on:
       - 'v*'
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     name: Build ${{ matrix.target_os }}-${{ matrix.arch }}-py${{ matrix.python }}
@@ -69,6 +72,7 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: write
