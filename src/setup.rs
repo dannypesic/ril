@@ -6,15 +6,64 @@ enum Manager {
     Uv
 }
 
+fn find_python() -> anyhow::Result<String> {
+    let versioned = ["python3.14", "python3.13", "python3.12", "python3.11"];
+
+    for candidate in &versioned {
+        if interpreter_version_ok(candidate) {
+            return Ok(candidate.to_string());
+        }
+    }
+
+    if interpreter_version_ok("python3") {
+        return Ok("python3".to_string());
+    }
+
+    anyhow::bail!(
+        "ril requires Python 3.11 or newer, but none was found on PATH.\n\
+         Tried: {versioned}, python3.\n\
+         Install Python 3.11–3.14 and make sure it is on your PATH.",
+        versioned = versioned.join(", ")
+    )
+}
+
+fn interpreter_version_ok(interpreter: &str) -> bool {
+    let output = match Command::new(interpreter).arg("--version").output() {
+        Ok(o) => o,
+        Err(_) => return false,
+    };
+
+    if !output.status.success() {
+        return false;
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+    parse_version_ok(&text)
+}
+
+fn parse_version_ok(text: &str) -> bool {
+    let version_str = text
+        .split_whitespace()
+        .nth(1)
+        .unwrap_or("");
+    let parts: Vec<&str> = version_str.split('.').collect();
+    if parts.len() < 2 {
+        return false;
+    }
+    let major: u32 = parts[0].parse().unwrap_or(0);
+    let minor: u32 = parts[1].parse().unwrap_or(0);
+    major == 3 && minor >= 11
+}
+
 pub fn setup_env() -> anyhow::Result<()> {
 
-    let manager : Manager = if Path::new("uv.lock").is_file() {
+    let manager: Manager = if Path::new("uv.lock").is_file() {
         Manager::Uv
     } else {
         Manager::Pip
     };
 
-    if ! Path::new(".venv").is_dir() {
+    if !Path::new(".venv").is_dir() {
 
         match manager {
             Manager::Uv => {
@@ -24,20 +73,17 @@ pub fn setup_env() -> anyhow::Result<()> {
                     .expect("couldn't create uv venv :(");
             },
             Manager::Pip => {
-                let which_py = if Command::new("python3")
-                    .arg("--version")
-                    .output()
-                    .is_ok()
-                { "python3" } else {"python"};
+                let python = find_python()?;
 
-                Command::new(which_py)
-                    .args(vec![
-                        "-m",
-                        "venv",
-                        ".venv"
-                    ])
-                    .output()
-                    .expect(format!("couldn't create venv :( {which_py} not found").as_str());
+                let status = Command::new(&python)
+                    .args(["-m", "venv", ".venv"])
+                    .status()
+                    .map_err(|e| anyhow::anyhow!("failed to run `{python} -m venv .venv`: {e}"))?;
+
+                anyhow::ensure!(
+                    status.success(),
+                    "couldn't create .venv — `{python} -m venv .venv` exited with {status}"
+                );
             }
         }
     }
@@ -51,21 +97,12 @@ pub fn setup_env() -> anyhow::Result<()> {
     match manager {
         Manager::Uv => {
             Command::new("uv")
-                .args(vec![
-                    "pip",
-                    "install",
-                    "pyarrow",
-                    "arro3-core"
-                ])
+                .args(["pip", "install", "pyarrow", "arro3-core"])
                 .output().expect("uv couldn't install dependencies :(");
         },
         Manager::Pip => {
             Command::new(".venv/bin/pip3")
-                .args(vec![
-                    "install",
-                    "pyarrow",
-                    "arro3-core"
-                ])
+                .args(["install", "pyarrow", "arro3-core"])
                 .output().expect("pip couldn't install dependencies :(");
         }
     }
@@ -76,4 +113,30 @@ pub fn setup_env() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_version_ok;
+
+    #[test]
+    fn accepts_311_and_above() {
+        assert!(parse_version_ok("Python 3.11.0"));
+        assert!(parse_version_ok("Python 3.12.3"));
+        assert!(parse_version_ok("Python 3.13.0rc1"));
+        assert!(parse_version_ok("Python 3.14.0a5"));
+    }
+
+    #[test]
+    fn rejects_below_311() {
+        assert!(!parse_version_ok("Python 3.10.12"));
+        assert!(!parse_version_ok("Python 3.9.7"));
+        assert!(!parse_version_ok("Python 2.7.18"));
+    }
+
+    #[test]
+    fn rejects_garbage() {
+        assert!(!parse_version_ok(""));
+        assert!(!parse_version_ok("not a version"));
+    }
 }

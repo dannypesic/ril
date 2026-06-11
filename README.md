@@ -14,7 +14,7 @@ ril connects directly with `pip` or `uv` in your project to ensure clean integra
 - `pip`: default
 - `uv`: if `uv.lock` detected
 
-ril is currently locked to Python 3.14.
+ril supports Python 3.11–3.14. On startup it auto-detects the newest compatible interpreter available on your PATH (trying `python3.14`, `python3.13`, `python3.12`, `python3.11`, then `python3` as a fallback).
 
 ## How it works
 
@@ -67,4 +67,12 @@ load data.csv | model.py    | save output.csv   # dynamic mode: workers auto-all
 cargo build --release
 ```
 
-Requires Rust and Python 3.14. On first run, ril automatically creates a `.venv` and `ril.py` in your project directory and installs `pyarrow` and `arro3-core`.
+Requires Rust and Python 3.11–3.14. On first run, ril automatically creates a `.venv` and `ril.py` in your project directory and installs `pyarrow` and `arro3-core`.
+
+To build against a specific Python version, set `PYO3_PYTHON` before running cargo:
+
+```bash
+PYO3_PYTHON=python3.13 cargo build --release
+```
+
+Pre-built release binaries are each compiled against a specific Python version, so check the release asset name for the version they embed. Building from source uses whichever 3.11–3.14 interpreter `PYO3_PYTHON` points to (or the first one found on your PATH if unset).
