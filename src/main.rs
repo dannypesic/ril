@@ -20,7 +20,12 @@ fn main() {
 fn run() -> anyhow::Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|arg| arg == "-h" || arg == "--help") {
-        println!("help");
+        println!("ril: parallel Python pipeline executor\n");
+        println!("Reads a `rilfile` in the current directory and runs the pipeline.\n");
+        println!("Usage:");
+        println!("  ril          run the pipeline defined in ./rilfile");
+        println!("  ril -h       show this help\n");
+        println!("Docs and examples: https://github.com/dannypesic/ril");
         return Ok(());
     }
 
