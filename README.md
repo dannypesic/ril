@@ -114,6 +114,10 @@ ril connects to `pip` or `uv` in your project to manage the `.venv`:
 
 On startup, ril auto-detects the newest compatible Python interpreter available on your PATH, trying `python3.14`, `python3.13`, `python3.12`, `python3.11`, then `python3` as a fallback.
 
+### Feedback
+
+Bug reports and feature requests are welcome. Open an issue on GitHub.
+
 ### Building
 
 ```bash
