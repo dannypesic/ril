@@ -74,6 +74,16 @@ def process(batch):
 
 Place the file in your project directory and reference it by name in the rilfile. ril calls the decorated function once per chunk with a `pyarrow.RecordBatch` and expects a `pyarrow.RecordBatch` back.
 
+### Binary stages
+
+Any executable that reads Arrow IPC from stdin and writes Arrow IPC to stdout works as a stage. Reference it by path:
+
+```
+load data.csv | ./transform | save output.csv
+```
+
+The binary receives batches one at a time and must flush stdout after writing each result. Worker count tags work the same as for Python stages.
+
 ### Built-in stages
 
 | Stage  | Example                   | Notes                                      |

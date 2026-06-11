@@ -1,4 +1,5 @@
 use std::fs;
+use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
 use std::process::Command;
 use std::sync::OnceLock;
@@ -172,6 +173,38 @@ fn test_tee_writes_intermediate_file() {
             "{name}: data values missing\ncontent: {content:?}"
         );
     }
+}
+
+#[test]
+fn test_binary_stage_passthrough() {
+    let dir = make_dir();
+    fs::write(dir.path().join("input.csv"), "x,y\n10,20\n30,40\n").unwrap();
+
+    let src = PathBuf::from(env!("CARGO_BIN_EXE_passthrough"));
+    let dst = dir.path().join("passthrough");
+    fs::copy(&src, &dst).unwrap();
+    fs::set_permissions(&dst, fs::Permissions::from_mode(0o755)).unwrap();
+
+    fs::write(
+        dir.path().join("rilfile"),
+        "load input.csv | ./passthrough x1 | save output.csv",
+    )
+    .unwrap();
+
+    let out = run_ril(&dir);
+    assert!(
+        out.status.success(),
+        "ril failed\nstdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr),
+    );
+
+    let csv = fs::read_to_string(dir.path().join("output.csv")).expect("output.csv not created");
+    assert!(csv.contains("x") && csv.contains("y"), "headers missing: {csv}");
+    assert!(
+        csv.contains("10") && csv.contains("20") && csv.contains("30") && csv.contains("40"),
+        "data missing: {csv}"
+    );
 }
 
 #[test]

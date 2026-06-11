@@ -13,5 +13,9 @@ pyo3-arrow = "0.18.0"
 command-fds = "0.3.3"
 num_cpus = "1"
 
+[[bin]]
+name = "passthrough"
+path = "tests/passthrough.rs"
+
 [dev-dependencies]
 tempfile = "3"
