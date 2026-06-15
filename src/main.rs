@@ -1,5 +1,5 @@
 // Copyright (C) 2026 Daniel Pesic
-// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: MIT
 
 mod stages;
 mod pipeline;
