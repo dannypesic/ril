@@ -9,15 +9,6 @@ use crate::error::ERROR_PREFIX;
 use crate::pipeline::progress;
 use crate::stages::{BuiltinStage, ScriptStage, Stage, WorkerMode};
 
-fn is_auto_mode(stages: &[Stage]) -> bool {
-    let has_scripts = stages.iter().any(|s| matches!(s, Stage::Script(_)));
-    let has_explicit = stages.iter().any(|s| matches!(
-        s,
-        Stage::Script(ScriptStage { workers: WorkerMode::Fixed(_) | WorkerMode::Dynamic, .. })
-    ));
-    has_scripts && !has_explicit
-}
-
 fn allocate_workers(timings: &[(usize, f64)], total: usize) -> Vec<(usize, usize)> {
     let n = timings.len();
 
@@ -53,7 +44,18 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
         anyhow::bail!("empty pipeline");
     }
 
-    let auto_mode = is_auto_mode(&stages);
+    let dynamic_indices: Vec<usize> = stages.iter().enumerate()
+        .filter(|(_, s)| matches!(s, Stage::Script(ScriptStage { workers: WorkerMode::Default, .. })))
+        .map(|(i, _)| i)
+        .collect();
+    let fixed_worker_total: usize = stages.iter()
+        .filter_map(|s| match s {
+            Stage::Script(ScriptStage { workers: WorkerMode::Fixed(n), .. }) => Some(*n),
+            _ => None,
+        })
+        .sum();
+    let has_dynamic = !dynamic_indices.is_empty();
+
     let exe = std::env::current_exe()?;
     let venv = std::env::current_dir()?.join(".venv");
 
@@ -87,8 +89,8 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
     let mut prev_stdout: Option<ChildStdout> = None;
     let mut control_writers: Vec<Option<std::io::PipeWriter>> = Vec::new();
 
-    for (index, stage) in stages.iter().enumerate() {
-        let is_script = matches!(stage, Stage::Script(_));
+    for index in 0..stages.len() {
+        let is_dynamic = dynamic_indices.contains(&index);
 
         let stdin = match prev_stdout.take() {
             Some(out) => Stdio::from(out),
@@ -105,7 +107,7 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
             cmd.stderr(Stdio::piped());
         }
 
-        if auto_mode && is_script {
+        if is_dynamic {
             let (ctrl_r, ctrl_w) = pipe()?;
             control_writers.push(Some(ctrl_w));
             cmd.env("RIL_AUTO_ALLOC", "1")
@@ -123,9 +125,9 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
     }
 
     let (progress_tx, progress_rx) = mpsc::channel::<progress::Msg>();
-    let script_count = script_indices.len();
+    let dynamic_count = dynamic_indices.len();
 
-    let (timing_tx_opt, timing_rx_opt) = if auto_mode {
+    let (timing_tx_opt, timing_rx_opt) = if has_dynamic {
         let (tx, rx) = mpsc::channel::<(usize, f64)>();
         (Some(tx), Some(rx))
     } else {
@@ -140,11 +142,11 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
 
         let is_load = Some(index) == load_idx;
         let is_progress = Some(index) == progress_stage_idx;
-        let is_script_stage = script_indices.contains(&index);
+        let is_dynamic_stage = dynamic_indices.contains(&index);
 
         let progress_tx_clone = if is_load || is_progress { Some(progress_tx.clone()) } else { None };
         let timing_tx_clone = timing_tx_opt.as_ref()
-            .filter(|_| is_script_stage)
+            .filter(|_| is_dynamic_stage)
             .cloned();
         let stage_name = stage_names[index].clone();
 
@@ -191,18 +193,19 @@ pub fn run(stages: Vec<Stage>) -> anyhow::Result<()> {
         progress::run(progress_rx);
     });
 
-    if auto_mode {
+    if has_dynamic {
         let timing_rx = timing_rx_opt.unwrap();
+        let budget = num_cpus::get().saturating_sub(fixed_worker_total).max(dynamic_count);
         thread::spawn(move || {
             let mut timings: Vec<(usize, f64)> = Vec::new();
-            for _ in 0..script_count {
+            for _ in 0..dynamic_count {
                 match timing_rx.recv() {
                     Ok(t) => timings.push(t),
                     Err(_) => break,
                 }
             }
             if timings.is_empty() { return; }
-            let allocs = allocate_workers(&timings, num_cpus::get());
+            let allocs = allocate_workers(&timings, budget);
             for (stage_idx, count) in allocs {
                 if let Some(Some(mut w)) = control_writers.get_mut(stage_idx).map(|e| e.take()) {
                     let _ = write!(w, "{count}\n");

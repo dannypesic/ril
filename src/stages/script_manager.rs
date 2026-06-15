@@ -46,7 +46,6 @@ pub fn run_manager(path: &String, flags: Vec<(String, String)>, index: usize, wo
         match worker_mode {
             WorkerMode::Default => 1,
             WorkerMode::Fixed(n) => n,
-            WorkerMode::Dynamic => num_cpus::get(),
         }
     };
 

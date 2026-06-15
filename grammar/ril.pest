@@ -3,7 +3,9 @@
 WHITESPACE = _{ " " | "\t" | "\n" | "\r\n" }
 
 // A full pipeline: stage | stage | stage
-pipeline = { stage ~ ("|" ~ stage)* }
+// EOI anchors the parse so trailing garbage is a clean error, not a silent
+// truncation (which leaves a dangling stage and hangs).
+pipeline = { SOI ~ stage ~ ("|" ~ stage)* ~ EOI }
 
 // A stage is either a builtin command or a script path
 stage = _{ builtin | script }
@@ -18,7 +20,7 @@ tee     = { "tee" ~ path }
 // A script: path to a .py file or binary, optional worker spec, plus optional flags
 script      = { path ~ worker_spec? ~ flag* }
 path        = @{ (ASCII_ALPHANUMERIC | "." | "/" | "_" | "-")+ }
-worker_spec = @{ "x" ~ (ASCII_DIGIT+ | "D") }
+worker_spec = @{ "x" ~ ASCII_DIGIT+ }
 flag    = { "--" ~ ident ~ "=" ~ value }
 
 // Primitives

@@ -29,14 +29,7 @@ fn extract_flags(pair: pest::iterators::Pair<Rule>) -> Vec<(String, String)> {
 fn extract_worker_mode(pair: pest::iterators::Pair<Rule>) -> WorkerMode {
     match pair.into_inner().find(|p| p.as_rule() == Rule::worker_spec) {
         None => WorkerMode::Default,
-        Some(spec) => {
-            let s = &spec.as_str()[1..];
-            if s == "D" {
-                WorkerMode::Dynamic
-            } else {
-                WorkerMode::Fixed(s.parse().unwrap())
-            }
-        }
+        Some(spec) => WorkerMode::Fixed(spec.as_str()[1..].parse().unwrap()),
     }
 }
 
