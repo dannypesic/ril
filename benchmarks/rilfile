@@ -1,0 +1,1 @@
+load input.csv +20000 | stage.py | save out_ril.csv
