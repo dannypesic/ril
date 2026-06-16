@@ -53,12 +53,12 @@ Ray, Dask, and Spark are built for clusters. When your data fits on one machine 
 
 Applying a CPU-bound Python function to every row of a one-million-row CSV, on an 8-core laptop:
 
-| approach              | time   |
-|-----------------------|--------|
-| single-core pandas    | 47.1s  |
-| multiprocessing.Pool  | 11.9s  |
-| ril (auto)            | 16.7s  |
-| ril (workers pinned)  | 12.2s  |
+| variant              | time   |
+|----------------------|--------|
+| single-core (pandas) | 47.5 s |
+| multiprocessing.Pool | 11.8 s |
+| ril (auto workers)   | 16.1 s |
+| ril (`x8`, pinned)   | 11.9 s |
 
 With workers pinned, ril matches a hand-tuned `multiprocessing.Pool` to within a few percent, and gets there without the Pool boilerplate or the manual IO. That works out to nearly 4x over single-core pandas on this machine; `Pool` reaches the same ceiling, so it's the limit of the workload and the hardware rather than of ril. Peak memory also stays flat as the input grows, holding around 160MB at every size in this test while the pandas approaches climb past 700MB.
 
