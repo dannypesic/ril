@@ -2,12 +2,20 @@ use pyo3::prelude::*;
 use pyo3_arrow::PyRecordBatch;
 use std::ffi::CString;
 use std::io::{stdin, stdout, Write};
+use arrow::datatypes::{Schema, SchemaRef};
 use arrow::ipc::reader::StreamReader;
 use arrow::ipc::writer::StreamWriter;
 use arrow::record_batch::RecordBatch;
 
 fn get_from_py(batch: RecordBatch, main_fn: &Bound<'_, PyAny>, kwargs: &Bound<'_, pyo3::types::PyDict>) -> PyResult<PyRecordBatch> {
     main_fn.call((PyRecordBatch::new(batch),), Some(kwargs))?.extract()
+}
+
+fn fmt_schema(schema: &Schema) -> String {
+    schema.fields().iter()
+        .map(|f| format!("{}: {:?}", f.name(), f.data_type()))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 pub fn run_script(path: &str, flags: Vec<(String, String)>) -> anyhow::Result<()> {
@@ -46,6 +54,7 @@ pub fn run_script(path: &str, flags: Vec<(String, String)>) -> anyhow::Result<()
 
         let mut reader = StreamReader::try_new(stdin(), None)?;
         let mut writer: Option<StreamWriter<_>> = None;
+        let mut out_schema: Option<SchemaRef> = None;
         let mut batch_index: usize = 0;
 
         for batch in &mut reader {
@@ -58,16 +67,31 @@ pub fn run_script(path: &str, flags: Vec<(String, String)>) -> anyhow::Result<()
                     anyhow::anyhow!("batch {batch_index}:\n{traceback}{e}")
                 })?
                 .into_inner();
-            batch_index += 1;
+
             let w = match writer {
-                Some(ref mut w) => w,
+                Some(ref mut w) => {
+                    let expected = out_schema.as_ref().unwrap();
+                    if result.schema_ref() != expected {
+                        anyhow::bail!(
+                            "batch {batch_index}: this stage's output schema changed.\n\
+                             first batch: [{}]\n\
+                             this batch:  [{}]\n\
+                             every batch a stage returns must have the same columns and types.",
+                            fmt_schema(expected),
+                            fmt_schema(result.schema_ref()),
+                        );
+                    }
+                    w
+                }
                 None => {
+                    out_schema = Some(result.schema());
                     writer = Some(StreamWriter::try_new(stdout(), result.schema_ref())?);
                     writer.as_mut().unwrap()
                 }
             };
             w.write(&result)?;
             stdout().flush()?;
+            batch_index += 1;
         }
         if let Some(mut w) = writer {
             w.finish()?;

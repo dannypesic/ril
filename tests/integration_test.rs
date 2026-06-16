@@ -259,3 +259,42 @@ def process(batch):
         "expected Python error details in stderr\nstderr: {stderr:?}"
     );
 }
+
+#[test]
+fn test_schema_drift_exits_nonzero() {
+    let dir = make_dir();
+    fs::write(dir.path().join("input.csv"), "id\n1\n2\n3\n").unwrap();
+
+    fs::write(
+        dir.path().join("drift.py"),
+        r#"from ril import rilfn
+import pyarrow as pa
+
+@rilfn
+def process(batch):
+    data = pa.record_batch(batch).to_pydict()
+    if 2 in data['id']:
+        data['extra'] = [0] * len(data['id'])
+    return pa.RecordBatch.from_pydict(data)
+"#,
+    )
+    .unwrap();
+
+    fs::write(
+        dir.path().join("rilfile"),
+        "load input.csv +1 | drift.py x1 | save output.csv",
+    )
+    .unwrap();
+
+    let out = run_ril(&dir);
+    assert!(
+        !out.status.success(),
+        "expected non-zero exit when a stage's output schema changes between batches"
+    );
+
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("output schema changed"),
+        "expected a schema-mismatch diagnostic in stderr\nstderr: {stderr:?}"
+    );
+}
